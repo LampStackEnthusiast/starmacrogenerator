@@ -1,0 +1,20 @@
+// Optional maintainer checks: node test-engine.cjs (Node is NOT needed to use the site).
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),path=require('path');
+vm.runInThisContext(fs.readFileSync(path.join(__dirname,'template.js'),'utf8')+'\n'+fs.readFileSync(path.join(__dirname,'engine.js'),'utf8'));
+const s={...DEFAULT_SETTINGS},d=calculate(s),macro=renderMacro(s);
+assert.ok(Math.abs(d.box_min[0]+8.3)<1e-12);
+assert.ok(Math.abs(d.box_max[0]-4.3)<1e-12);
+assert.match(macro,/getMaxXFace\(\)\}\), "KM_Inlet"/);
+assert.match(macro,/getMinXFace\(\)\}\), "KM_Outlet"/);
+assert.match(macro,/velocityProfile_0.*setComponentsAndUnits\(-9.0, 0.0, 0.0/);
+assert.match(macro,/forceReport_0.getDirection\(\).setComponentsAndUnits\(-1.0, 0.0, 0.0/);
+assert.match(macro,/thickness.getAbsoluteSize\(\).getValue\(\).setValueAndUnits\(0.01/);
+assert.doesNotMatch(macro,/@[A-Z]+@/);
+assert.deepEqual(d.refinement_min,d.part_min);
+assert.equal(d.refinement_size,.01);
+assert.deepEqual(loadSettings(JSON.stringify({format:3,settings:s})),s);
+assert.equal(loadSettings('{"format":1,"settings":{"part_name":"wing"}}').part_name,'wing');
+assert.equal(loadSettings('{"format":2,"settings":{"reference_pressure":101325,"initial_pressure":101000,"outlet_pressure":101000}}').outlet_pressure,0);
+for(const [key,value] of [['x',0],['speed',Infinity],['prism_layers',2.5],['refinement_percent',101],['refinement_padding',600],['initial_pressure',-101000]])assert.throws(()=>calculate({...s,[key]:value}));
+const name='Wing "A" \\ café @BASE@';assert.ok(renderMacro({...s,part_name:name}).includes('getPart('+javaString(name)+')'));
+console.log('Engine checks passed.');
