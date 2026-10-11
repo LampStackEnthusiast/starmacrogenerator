@@ -1,20 +1,8 @@
 # STAR Macro Builder — GitHub Pages edition
 
-A browser-based conversion of the working Python generator. No Python, Node.js, package installation, build step, external fonts, or CDN is needed to use or host it.
-
-## Try it locally
-
-Extract the entire ZIP, then double-click `index.html`. Keep the HTML, JavaScript and CSS files together. All processing happens in the browser; no CAD, settings, or macro data is uploaded.
-
-## Publish on GitHub Pages
-
-1. Create a public GitHub repository (for example `star-macro-generator`).
-2. Upload the **extracted files**, not the ZIP. Place `index.html`, `styles.css`, `app.js`, `engine.js`, `template.js`, and `.nojekyll` at the repository root. README and the example files can also be included. If your file picker hides `.nojekyll`, create an empty file with that name using GitHub's Add file → Create new file.
-3. Commit the files to `main`.
-4. Open Settings → Pages. Under Build and deployment choose **Deploy from a branch**, then **main** and **/(root)**. Save.
-5. When deployment completes, open the URL shown there, normally `https://YOUR-USERNAME.github.io/star-macro-generator/`.
-
-All asset paths are relative, so a repository subdirectory URL works. No GitHub Actions workflow is required. To update, upload the changed files and commit again.
+this is some vibecoded slop but it works?
+not maintained, use at own risk yadda yadda
+montanafsae.com
 
 ## Using the generator
 
@@ -49,10 +37,4 @@ The refinement block is a sizing volume, not an extra fluid/solid region or subt
 - `test2_part_preset.json`: loadable reference settings.
 - `.nojekyll`: disables Jekyll processing on GitHub Pages.
 
-## Verification
 
-50 combinations of dimensions, position, units, reference length, base-size mode, mesh multiplier, air-speed units, and refinement padding were compared against the working Python generator with the intended flow changes applied. Calculated quantities and all generated Java tokens matched within floating-point rounding. Invalid-input rejection, part-name escaping, pressure migration, and settings round-trip checks also passed.
-
-JavaScript syntax checks passed. A browser smoke test could not run because the environment had no installed browser and its browser download failed; visual layout and download interactions still need a local browser check.
-
-The Java macro was not compiled or played in STAR-CCM+ in the build environment. The underlying template is the user-confirmed working version; this release needs a STAR-CCM+ playback check for the reversed flow setup.
