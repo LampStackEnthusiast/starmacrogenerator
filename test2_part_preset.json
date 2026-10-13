@@ -1,17 +1,9 @@
 {
-  "format": 2,
+  "format": 4,
   "settings": {
     "part_name": "Part 6__Part 6",
     "length_unit": "mm",
-    "x": 385.366782545257,
-    "y": 927.1,
-    "z": 201.23222470233648,
-    "position": "Enter minimum coordinates",
-    "min_x": 304.8,
-    "min_y": -393.8294467449192,
-    "min_z": 0,
     "reference": "Largest dimension",
-    "custom_reference": 600,
     "upstream": 5,
     "downstream": 10,
     "sides": 5,
@@ -25,7 +17,6 @@
     "speed_scale": 1,
     "generate_mesh": false,
     "refinement_percent": 2,
-    "refinement_padding": 0,
     "minimum_surface_percent": 10,
     "target_surface_percent": 100,
     "maximum_cell_percent": 10000,
@@ -37,5 +28,7 @@
     "outlet_pressure": 0,
     "turbulence_intensity_percent": 1,
     "viscosity_ratio": 10
-  }
+  },
+  "geometry_source": "detected_in_star",
+  "flow_direction": "-X"
 }

@@ -1,7 +1,7 @@
 // Generated from KianMacro.java (recorded in STAR-CCM+ 21.04.008).
 // Inputs are SI units. The source geometry is NOT scaled or moved.
 // Airflow -X: inlet +X, outlet -X; drag -X; downforce -Z.
-// Reference length = 0.8 m; base = 0.5 m; speed = 9.0 m/s.
+// Part dimensions, domain and refinement bounds are detected at playback; speed = 9.0 m/s.
 // Simcenter STAR-CCM+ macro: KianMacro.java
 // Written by Simcenter STAR-CCM+ 21.04.008
 package macro;
@@ -63,6 +63,42 @@ public class ConfiguredMacro extends StarMacro {
     MeshPartFactory meshPartFactory_0 = 
       simulation_0.get(MeshPartFactory.class);
 
+    // Native bounded-shape sequence from TestMacroTwo.java, without its accidental copy.
+    BoundedShapeCreatingOperation refinementOperation = (BoundedShapeCreatingOperation)
+        simulation_0.get(MeshOperationManager.class).createBoundedShapeOperation(
+            new ArrayList<>(Arrays.<GeometryPart>asList(cadPart_0)));
+    refinementOperation.setPresentationName("KM_Refinement_Bounds");
+    refinementOperation.setCoordinateSystem(simulation_0.getCoordinateSystemManager().getLabCoordinateSystem());
+    BoxShapeInflationControl inflation = refinementOperation.getBoundedShapeValuesManager()
+        .get(BoxShapeInflationControl.class);
+    // The fresh operation's default offset is retained, matching the recording.
+    inflation.setInflationMode(BoxShapeInflationControl.InflationMode.CONSTANT_OFFSET);
+    refinementOperation.execute();
+
+    List<GeometryPart> createdParts = new ArrayList<>();
+    for (Object candidate : refinementOperation.getOutputPartObjects())
+      if (candidate instanceof GeometryPart) createdParts.add((GeometryPart) candidate);
+    if (createdParts.size() != 1)
+      throw new IllegalStateException("Expected one native bounded-shape output, got " + createdParts.size());
+    GeometryPart refinementBlock = createdParts.get(0);
+    refinementBlock.setPresentationName("KM_Refinement");
+    simulation_0.println("KM native refinement type: " + refinementBlock.getClass().getName());
+    double[][] partBounds = readRefinementBounds(simulation_0, refinementBlock);
+    double[] partMin = partBounds[0];
+    double[] partMax = partBounds[1];
+    simulation_0.println("KM refinement corner 1 (m): " + Arrays.toString(partMin));
+    simulation_0.println("KM refinement corner 2 (m): " + Arrays.toString(partMax));
+    double[][] layout = calculateLayout(partMin, partMax, false,
+        5.0, 10.0, 5.0, 5.0,
+        false, 1.0, 0.5, 1.0);
+    double[] domainMin = layout[0];
+    double[] domainMax = layout[1];
+    double referenceLength = layout[2][0];
+    double baseSize = layout[2][1];
+    simulation_0.println("Detected part bounds (m): " + Arrays.toString(partMin)
+        + " to " + Arrays.toString(partMax));
+    simulation_0.println("Reference L = " + referenceLength + " m; mesh base = " + baseSize + " m.");
+
     SimpleBlockPart simpleBlockPart_0 = 
       meshPartFactory_0.createNewBlockPart(simulation_0.get(SimulationPartManager.class));
 
@@ -76,11 +112,11 @@ public class ConfiguredMacro extends StarMacro {
 
     simpleBlockPart_0.getCorner1().setCoordinateSystem(labCoordinateSystem_0);
 
-    simpleBlockPart_0.getCorner1().setCoordinate(units_0, units_0, units_0, new DoubleVector(new double[] {-8.3, -4.4, -4.1}));
+    simpleBlockPart_0.getCorner1().setCoordinate(units_0, units_0, units_0, new DoubleVector(domainMin));
 
     simpleBlockPart_0.getCorner2().setCoordinateSystem(labCoordinateSystem_0);
 
-    simpleBlockPart_0.getCorner2().setCoordinate(units_0, units_0, units_0, new DoubleVector(new double[] {4.3, 4.4, 4.1}));
+    simpleBlockPart_0.getCorner2().setCoordinate(units_0, units_0, units_0, new DoubleVector(domainMax));
 
     simpleBlockPart_0.rebuildSimpleShapePart();
 
@@ -218,23 +254,12 @@ public class ConfiguredMacro extends StarMacro {
     AutoMeshOperation autoMeshOperation_0 = 
       simulation_0.get(MeshOperationManager.class).createAutoMeshOperation(new StringVector(new String[] {"star.trimmer.TrimmerAutoMesher", "star.resurfacer.ResurfacerAutoMesher", "star.prismmesher.PrismAutoMesher", "star.resurfacer.AutomaticSurfaceRepairAutoMesher"}), new ArrayList<>(Arrays.<GeometryPart>asList(meshPart_0)));
 
-    autoMeshOperation_0.getDefaultValues().get(BaseSize.class).setValueAndUnits(0.5, units_0);
+    autoMeshOperation_0.getDefaultValues().get(BaseSize.class).setValueAndUnits(baseSize, units_0);
 
     // V2: settings recovered from test2.sim. Only the fluid part is a mesh input.
-    // This second block is a sizing volume, never a solid obstacle or fluid region.
-    SimpleBlockPart refinementBlock = meshPartFactory_0.createNewBlockPart(
-        simulation_0.get(SimulationPartManager.class));
-    refinementBlock.setPresentationName("KM_Refinement");
-    refinementBlock.setDoNotRetessellate(true);
-    refinementBlock.setCoordinateSystem(labCoordinateSystem_0);
-    refinementBlock.getCorner1().setCoordinateSystem(labCoordinateSystem_0);
-    refinementBlock.getCorner1().setCoordinate(units_0, units_0, units_0,
-        new DoubleVector(new double[] {-0.3, -0.4, -0.1}));
-    refinementBlock.getCorner2().setCoordinateSystem(labCoordinateSystem_0);
-    refinementBlock.getCorner2().setCoordinate(units_0, units_0, units_0,
-        new DoubleVector(new double[] {0.3, 0.4, 0.1}));
-    refinementBlock.rebuildSimpleShapePart();
-    refinementBlock.setDoNotRetessellate(false);
+    // Snap this sizing volume to the detected source bounds, with no padding.
+    // KM_Refinement is the native bounded-shape output linked to the source part.
+
 
     PartsMinimumSurfaceSize minSize = autoMeshOperation_0.getDefaultValues().get(PartsMinimumSurfaceSize.class);
     minSize.getRelativeOrAbsoluteOption().setSelected(RelativeOrAbsoluteOption.Type.RELATIVE);
@@ -419,8 +444,227 @@ public class ConfiguredMacro extends StarMacro {
 
     streamDisplayer_0.setRepresentation(latestMeshProxyRepresentation_0);
     scene_1.resetCamera();
-    simulation_0.println("SETUP COMPLETE: drag +X, downforce -Z; " + bodyBoundaries.size() + " body surfaces.");
+    simulation_0.println("SETUP COMPLETE: drag -X, downforce -Z; " + bodyBoundaries.size() + " body surfaces.");
     simulation_0.println("Inspect the domain, boundaries, physics and mesh before running the solver.");
+  }
+
+  // A MeshOperationPart has geometry but is not a SimpleBlockPart primitive.
+  // Measure only that geometry in a private scene, never the user's current scene.
+  private static double[][] readRefinementBounds(Simulation sim, GeometryPart output) {
+    List<Scene> temporaryScenes = new ArrayList<>();
+    Units metres = (Units) sim.getUnitsManager().getObject("m");
+    SimpleBlockPart probe = sim.get(MeshPartFactory.class)
+        .createNewBlockPart(sim.get(SimulationPartManager.class));
+    probe.setPresentationName("KM_Measurement_Probe_" + System.nanoTime());
+    boolean measurementSucceeded = false;
+    try {
+      LabCoordinateSystem lab = sim.getCoordinateSystemManager().getLabCoordinateSystem();
+      probe.setCoordinateSystem(lab);
+      probe.getCorner1().setCoordinateSystem(lab);
+      probe.getCorner2().setCoordinateSystem(lab);
+      double[] expectedMin = {0.125, -0.75, 1.625};
+      double[] expectedMax = {0.375, 0.5, 2.875};
+      probe.getCorner1().setCoordinate(metres, metres, metres, new DoubleVector(expectedMin));
+      probe.getCorner2().setCoordinate(metres, metres, metres, new DoubleVector(expectedMax));
+      probe.rebuildSimpleShapePart();
+      double[][] check = readIsolatedSceneBounds(sim, probe, temporaryScenes);
+      for (int side = 0; side < 2; side++) {
+        double[] expected = side == 0 ? expectedMin : expectedMax;
+        for (int axis = 0; axis < 3; axis++)
+          if (Math.abs(check[side][axis] - expected[axis]) > 1.0e-6)
+            throw new IllegalStateException("Scene-bounds self-check failed. Expected "
+                + Arrays.toString(expected) + ", measured " + Arrays.toString(check[side]));
+      }
+      sim.println("BOUNDS SELF-CHECK PASSED: known box measured in metres.");
+      double[][] bounds = readIsolatedSceneBounds(sim, output, temporaryScenes);
+      sim.println("REFINEMENT BOUNDS (m): " + Arrays.toString(bounds[0])
+          + " to " + Arrays.toString(bounds[1]));
+      measurementSucceeded = true;
+      return bounds;
+    } finally {
+      if (measurementSucceeded) {
+        for (Scene scene : temporaryScenes)
+          sim.deleteObjects(new ArrayList<>(Arrays.<ClientServerObject>asList(scene)));
+        sim.deleteObjects(new ArrayList<>(Arrays.<ClientServerObject>asList(probe)));
+      } else {
+        sim.println("Measurement failed; temporary scenes and probe retained for inspection.");
+      }
+    }
+  }
+
+  private static double[][] readIsolatedSceneBounds(Simulation sim, GeometryPart part, List<Scene> temporaryScenes) {
+    Set<Scene> before = new HashSet<>(sim.getSceneManager().getScenes());
+    sim.getSceneManager().createGeometrySceneAndWait("KM_Measurement", "Outline", "Geometry", 1);
+    Scene scene = null;
+    for (Scene candidate : sim.getSceneManager().getScenes()) {
+      if (before.contains(candidate)) continue;
+      if (scene != null) throw new IllegalStateException("Expected one measurement scene.");
+      scene = candidate;
+    }
+    if (scene == null) throw new IllegalStateException("Measurement scene was not created.");
+    temporaryScenes.add(scene);
+    try {
+      // Complete scene startup before assigning the measurement target.
+      // Opening/initializing a geometry scene can populate its default selections.
+      scene.initializeAndWait();
+      scene.openInteractive();
+      forceRender(sim, scene);
+      sim.println("MEASUREMENT TARGET: " + part.getPresentationName());
+      // PartRepresentation displayers rejected the GeometryPart container (empty
+      // selections in the supplied runtime log). Select its PartSurfaces instead.
+      if (!(part instanceof MeshPart))
+        throw new IllegalStateException("Measurement requires a MeshPart surface manager; got " + part.getClass().getName());
+      MeshPart meshPart = (MeshPart) part;
+      List<PartSurface> surfaces = new ArrayList<>(meshPart.getPartSurfaceManager().getPartSurfaces());
+      if (surfaces.isEmpty()) throw new IllegalStateException("Measurement target has no part surfaces: " + part.getPresentationName());
+      sim.println("TARGET SURFACES: " + surfaces);
+      int displayers = 0;
+      for (Object object : scene.getDisplayerManager().getObjects()) {
+        if (!(object instanceof PartDisplayer))
+          throw new IllegalStateException("Unexpected displayer in private geometry scene: " + object.getClass().getName());
+        PartDisplayer displayer = (PartDisplayer) object;
+        displayer.initialize();
+        setGeometryRepresentation(sim, displayer);
+        displayer.setSurface(true);
+        // Assign the target LAST, after initialization and representation changes.
+        displayer.getInputParts().setQuery(null);
+        displayer.getInputParts().setObjects(surfaces.toArray(new PartSurface[0]));
+        sim.println("SELECTED INPUTS: " + displayer.getPresentationName() + " = "
+            + displayer.getInputParts().getObjects());
+        checkSelectedSurfaces(displayer, surfaces);
+        displayers++;
+      }
+      if (displayers == 0) throw new IllegalStateException("Measurement scene has no geometry displayer.");
+      sim.println("BEFORE RENDER: " + scene.getDrawableScene().computeVisibleBounds().toString());
+      scene.resetCamera();
+      forceRender(sim, scene);
+      scene.resetCamera();
+      for (Object object : scene.getDisplayerManager().getObjects()) {
+        PartDisplayer displayer = (PartDisplayer) object;
+        sim.println("AFTER RENDER INPUTS: " + displayer.getPresentationName() + " = "
+            + displayer.getInputParts().getObjects());
+        checkSelectedSurfaces(displayer, surfaces);
+      }
+      // Published STAR community example: adjacent min/max pairs for X, Y, Z.
+      // Accept either within-pair order. The known-box self-check verifies axes and SI units.
+      Object raw = scene.getDrawableScene().computeVisibleBounds().toArray();
+      double[] values = numericArray(raw);
+      sim.println("AFTER RENDER RAW: " + Arrays.toString(values));
+      return unpackBounds(values);
+    } catch (RuntimeException error) {
+      sim.println("Measurement scene retained: " + scene.getPresentationName());
+      throw error;
+    }
+  }
+
+  private static void checkSelectedSurfaces(PartDisplayer displayer, List<PartSurface> expected) {
+    Collection<?> actual = displayer.getInputParts().getObjects();
+    if (actual.size() != expected.size() || !actual.containsAll(expected))
+      throw new IllegalStateException("Displayer rejected or changed the target surface selection: "
+          + displayer.getPresentationName() + "; expected " + expected + "; selected " + actual);
+  }
+
+  // Pass STAR's actual Geometry object to the compatible public setter.
+  // No assumption about the representation's concrete Java class is needed.
+  private static void setGeometryRepresentation(Simulation sim, PartDisplayer displayer) {
+    Object geometry = sim.getRepresentationManager().getObject("Geometry");
+    if (geometry == null) throw new IllegalStateException("Geometry representation was not found.");
+    for (java.lang.reflect.Method method : displayer.getClass().getMethods()) {
+      if (!method.getName().equals("setRepresentation") || method.getParameterCount() != 1
+          || !method.getParameterTypes()[0].isInstance(geometry)) continue;
+      try {
+        method.invoke(displayer, geometry);
+        sim.println("Geometry representation type: " + geometry.getClass().getName());
+        return;
+      } catch (Exception error) {
+        throw new IllegalStateException("Could not select Geometry representation.", error);
+      }
+    }
+    throw new IllegalStateException("No compatible setRepresentation setter for " + geometry.getClass().getName());
+  }
+
+  // Use an actual printAndWait overload present in this installation.
+  // This creates a small diagnostic PNG and waits for its render to complete.
+  private static void forceRender(Simulation sim, Scene scene) {
+    java.io.File png = null;
+    boolean rendered = false;
+    try {
+      png = java.io.File.createTempFile("km-bounds-", ".png");
+      sim.println("Diagnostic image: " + png.getAbsolutePath());
+      try {
+        java.lang.reflect.Method method = scene.getClass().getMethod(
+            "printAndWait", String.class, int.class, int.class, int.class);
+        method.invoke(scene, png.getAbsolutePath(), 1, 640, 480);
+      } catch (NoSuchMethodException noFourArgumentOverload) {
+        java.lang.reflect.Method method = scene.getClass().getMethod(
+            "printAndWait", String.class, int.class, int.class, int.class, boolean.class, boolean.class);
+        method.invoke(scene, png.getAbsolutePath(), 1, 640, 480, true, false);
+      }
+      if (png.length() == 0) throw new IllegalStateException("Render produced an empty image.");
+      rendered = true;
+    } catch (Exception error) {
+      for (java.lang.reflect.Method method : scene.getClass().getMethods())
+        if (method.getName().equals("printAndWait")) sim.println(method.toGenericString());
+      Throwable cause = error instanceof java.lang.reflect.InvocationTargetException
+          ? ((java.lang.reflect.InvocationTargetException) error).getTargetException() : error;
+      throw new IllegalStateException("Could not complete measurement scene render: " + cause, cause);
+    } finally {
+      if (rendered && png != null && !png.delete()) png.deleteOnExit();
+    }
+  }
+
+  private static double[] numericArray(Object raw) {
+    if (raw == null || !raw.getClass().isArray())
+      throw new IllegalStateException("Bounds API did not return an array.");
+    int count = java.lang.reflect.Array.getLength(raw);
+    double[] values = new double[count];
+    for (int i = 0; i < count; i++) {
+      Object value = java.lang.reflect.Array.get(raw, i);
+      if (!(value instanceof Number)) throw new IllegalStateException("Non-numeric bounds value at index " + i);
+      values[i] = ((Number) value).doubleValue();
+    }
+    return values;
+  }
+
+  private static double[][] unpackBounds(double[] values) {
+    if (values.length != 6) throw new IllegalStateException("Expected six scene bounds values; got " + values.length);
+    double[][] result = new double[2][3];
+    for (int axis = 0; axis < 3; axis++) {
+      double a = values[2 * axis], b = values[2 * axis + 1];
+      if (!Double.isFinite(a) || !Double.isFinite(b) || a == b)
+        throw new IllegalStateException("Invalid scene extent on axis " + axis + ": " + a + ", " + b);
+      result[0][axis] = Math.min(a, b);
+      result[1][axis] = Math.max(a, b);
+    }
+    return result;
+  }
+
+  // Pure SI-unit calculations shared by both enclosing blocks and mesh sizing.
+  private static double[][] calculateLayout(double[] lower, double[] upper, boolean useX,
+      double upstream, double downstream, double sides, double vertical,
+      boolean relativeMesh, double relativePercent, double absoluteBase, double meshScale) {
+    double[] size = new double[3];
+    for (int i = 0; i < 3; i++) {
+      size[i] = upper[i] - lower[i];
+      if (!Double.isFinite(size[i]) || size[i] <= 0)
+        throw new IllegalStateException("Invalid detected part dimensions.");
+    }
+    double ref = useX ? size[0] : Math.max(size[0], Math.max(size[1], size[2]));
+    double base = (relativeMesh ? ref * relativePercent / 100.0 : absoluteBase) * meshScale;
+    if (!Double.isFinite(base) || base <= 0)
+      throw new IllegalStateException("Invalid calculated mesh base size.");
+    double[] negativePadding = {downstream, sides, vertical};
+    double[] positivePadding = {upstream, sides, vertical};
+    double[] boxMin = new double[3];
+    double[] boxMax = new double[3];
+    for (int i = 0; i < 3; i++) {
+      boxMin[i] = lower[i] - negativePadding[i] * ref;
+      boxMax[i] = upper[i] + positivePadding[i] * ref;
+      if (!Double.isFinite(boxMin[i]) || !Double.isFinite(boxMax[i])
+          || !(boxMin[i] < lower[i] && upper[i] < boxMax[i]))
+        throw new IllegalStateException("Domain padding cannot be resolved at these dimensions.");
+    }
+    return new double[][] {boxMin, boxMax, new double[] {ref, base}};
   }
 
   private static String surfaceTag(String name, Set<String> expected) {

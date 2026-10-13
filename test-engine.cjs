@@ -1,20 +1,44 @@
-// Optional maintainer checks: node test-engine.cjs (Node is NOT needed to use the site).
+// Optional: node test-engine.cjs. Node is not needed to use the generator.
 const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict'),path=require('path');
 vm.runInThisContext(fs.readFileSync(path.join(__dirname,'template.js'),'utf8')+'\n'+fs.readFileSync(path.join(__dirname,'engine.js'),'utf8'));
-const s={...DEFAULT_SETTINGS},d=calculate(s),macro=renderMacro(s);
-assert.ok(Math.abs(d.box_min[0]+8.3)<1e-12);
-assert.ok(Math.abs(d.box_max[0]-4.3)<1e-12);
+const s={...DEFAULT_SETTINGS},macro=renderMacro(s);
+assert.doesNotMatch(macro,/readBoundedBlockCorners|output instanceof SimpleBlockPart/);
+assert.match(macro,/refinementOperation.getOutputPartObjects\(\)/);
+assert.match(macro,/computeVisibleBounds\(\).toArray\(\)/);
+assert.match(macro,/displayer.getInputParts\(\).setObjects\(surfaces.toArray\(new PartSurface\[0\]\)\)/);
+assert.doesNotMatch(macro,/part.getPartSurfaceManager\(\)|\(GeometryRepresentation\)/);
+assert.match(macro,/BOUNDS SELF-CHECK PASSED/);
+assert.ok(macro.indexOf('refinementOperation.execute()') < macro.indexOf('readRefinementBounds(simulation_0'));
+const attach=fs.readFileSync(path.join(__dirname,'AttachRefinementMacro.java'),'utf8');
+assert.doesNotMatch(attach,/computeVisibleBounds|readRefinementBounds|getCorner/);
+assert.match(attach,/control.getGeometryObjects\(\).setObjects\(volume\)/);
+assert.match(attach,/operation.getOutputPartObjects\(\)/);
+for(const key of ['x','y','z','position','min_x','min_y','min_z','custom_reference','refinement_padding']) assert.ok(!Object.hasOwn(s,key));
 assert.match(macro,/getMaxXFace\(\)\}\), "KM_Inlet"/);
 assert.match(macro,/getMinXFace\(\)\}\), "KM_Outlet"/);
 assert.match(macro,/velocityProfile_0.*setComponentsAndUnits\(-9.0, 0.0, 0.0/);
 assert.match(macro,/forceReport_0.getDirection\(\).setComponentsAndUnits\(-1.0, 0.0, 0.0/);
 assert.match(macro,/thickness.getAbsoluteSize\(\).getValue\(\).setValueAndUnits\(0.01/);
 assert.doesNotMatch(macro,/@[A-Z]+@/);
-assert.deepEqual(d.refinement_min,d.part_min);
-assert.equal(d.refinement_size,.01);
-assert.deepEqual(loadSettings(JSON.stringify({format:3,settings:s})),s);
-assert.equal(loadSettings('{"format":1,"settings":{"part_name":"wing"}}').part_name,'wing');
+assert.match(macro,/createBoundedShapeOperation/);
+assert.match(macro,/BoxShapeInflationControl.InflationMode.CONSTANT_OFFSET/);
+assert.match(macro,/refinementOperation.execute\(\)/);
+assert.match(macro,/refinement.getGeometryObjects\(\).setObjects\(refinementBlock\)/);
+assert.ok(macro.indexOf('refinementOperation.execute()')<macro.indexOf('calculateLayout(partMin'));
+assert.match(macro,/new DoubleVector\(domainMin\)/);
+assert.match(macro,/get\(BaseSize.class\).setValueAndUnits\(baseSize, units_0\)/);
+assert.deepEqual(loadSettings(JSON.stringify({format:4,settings:s})),s);
+const old={format:3,settings:{...s,x:0,y:-1,z:999999,position:'Enter minimum coordinates',min_x:100000,min_y:4000,min_z:200,refinement_padding:1000,reference:'Custom',custom_reference:777}};
+const migrated=loadSettings(JSON.stringify(old));assert.equal(migrated.reference,'Largest dimension');assert.equal(renderMacro(migrated),macro);
 assert.equal(loadSettings('{"format":2,"settings":{"reference_pressure":101325,"initial_pressure":101000,"outlet_pressure":101000}}').outlet_pressure,0);
-for(const [key,value] of [['x',0],['speed',Infinity],['prism_layers',2.5],['refinement_percent',101],['refinement_padding',600],['initial_pressure',-101000]])assert.throws(()=>calculate({...s,[key]:value}));
+for(const [key,value] of [['upstream',0],['speed',Infinity],['prism_layers',2.5],['refinement_percent',101],['initial_pressure',-101000]])assert.throws(()=>calculate({...s,[key]:value}));
 const name='Wing "A" \\ café @BASE@';assert.ok(renderMacro({...s,part_name:name}).includes('getPart('+javaString(name)+')'));
-console.log('Engine checks passed.');
+for(let i=0;i<50;i++){
+ const cfg={...s,length_unit:['mm','m','in'][i%3],reference:i%2?'X length':'Largest dimension',mesh_mode:i%2?'Relative to reference length':'Absolute size',relative_base:1+i/10,mesh_scale:.1+i/10,speed_unit:['m/s','mph','km/h'][i%3],speed:1+i};
+ const text=renderMacro(cfg);assert.doesNotMatch(text,/@[A-Z]+@/);assert.match(text,/readRefinementBounds/);assert.deepEqual(loadSettings(JSON.stringify({format:4,settings:cfg})),cfg);
+ if(i%2)assert.equal(calculate(cfg).base,null);
+}
+const app=fs.readFileSync(path.join(__dirname,'app.js'),'utf8');
+assert.ok(!app.includes("['x','X dimension']"));assert.ok(!app.includes('form.elements.custom_reference'));
+fs.writeFileSync(path.join(__dirname,'ConfiguredMacro.java'),macro);
+console.log('PASS: 50 export/round-trip configurations, native refinement wiring and verified surface-measurement wiring, legacy migration, flow direction, escaping and invalid-input checks. STAR API execution requires STAR-CCM+.');
