@@ -27,7 +27,7 @@
       }
       sim.println("BOUNDS SELF-CHECK PASSED: known box measured in metres.");
       double[][] bounds = readIsolatedSceneBounds(sim, output, temporaryScenes);
-      sim.println("REFINEMENT BOUNDS (m): " + Arrays.toString(bounds[0])
+      sim.println("MEASURED BOUNDS (m): " + Arrays.toString(bounds[0])
           + " to " + Arrays.toString(bounds[1]));
       measurementSucceeded = true;
       return bounds;

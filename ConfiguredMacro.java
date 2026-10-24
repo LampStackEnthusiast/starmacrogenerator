@@ -83,18 +83,23 @@ public class ConfiguredMacro extends StarMacro {
     GeometryPart refinementBlock = createdParts.get(0);
     refinementBlock.setPresentationName("KM_Refinement");
     simulation_0.println("KM native refinement type: " + refinementBlock.getClass().getName());
-    double[][] partBounds = readRefinementBounds(simulation_0, refinementBlock);
+    // Ground clearance must use the model itself, not any bounded-shape inflation.
+    double[][] partBounds = readRefinementBounds(simulation_0, false ? cadPart_0 : refinementBlock);
     double[] partMin = partBounds[0];
     double[] partMax = partBounds[1];
-    simulation_0.println("KM refinement corner 1 (m): " + Arrays.toString(partMin));
-    simulation_0.println("KM refinement corner 2 (m): " + Arrays.toString(partMax));
+    simulation_0.println("KM layout bounds min (m): " + Arrays.toString(partMin));
+    simulation_0.println("KM layout bounds max (m): " + Arrays.toString(partMax));
     double[][] layout = calculateLayout(partMin, partMax, false,
         5.0, 10.0, 5.0, 5.0,
-        false, 1.0, 0.5, 1.0);
+        false, 1.0, 0.5, 1.0, false, 0.0);
     double[] domainMin = layout[0];
     double[] domainMax = layout[1];
     double referenceLength = layout[2][0];
     double baseSize = layout[2][1];
+    if (false)
+      simulation_0.println("ROLLING FLOOR: model min Z = " + partMin[2]
+          + " m; floor Z = " + domainMin[2] + " m; clearance = "
+          + (partMin[2] - domainMin[2]) + " m; wall velocity = [-9.0, 0, 0] m/s.");
     simulation_0.println("Detected part bounds (m): " + Arrays.toString(partMin)
         + " to " + Arrays.toString(partMax));
     simulation_0.println("Reference L = " + referenceLength + " m; mesh base = " + baseSize + " m.");
@@ -131,6 +136,9 @@ public class ConfiguredMacro extends StarMacro {
         new IntVector(new int[] {simpleBlockPart_0.getMaxXFace()}), "KM_Inlet");
     simpleBlockPart_0.splitPartSurfaceByPatch(blockSurface,
         new IntVector(new int[] {simpleBlockPart_0.getMinXFace()}), "KM_Outlet");
+    if (false)
+      simpleBlockPart_0.splitPartSurfaceByPatch(blockSurface,
+          new IntVector(new int[] {simpleBlockPart_0.getMinZFace()}), "KM_Ground");
     blockSurface.setPresentationName("KM_Farfield");
 
     // Tag all body surfaces so no arbitrary CAD name is mistaken for the enclosure.
@@ -153,6 +161,7 @@ public class ConfiguredMacro extends StarMacro {
     meshPart_0.setPresentationName("KM_Fluid");
     Set<String> expected = new LinkedHashSet<>(bodyLabels.keySet());
     expected.add("KM_Inlet"); expected.add("KM_Outlet"); expected.add("KM_Farfield");
+    if (false) expected.add("KM_Ground");
     Set<String> found = new HashSet<>();
     for (PartSurface surface : meshPart_0.getPartSurfaceManager().getPartSurfaces()) {
       String tag = surfaceTag(surface.getPresentationName(), expected);
@@ -250,6 +259,16 @@ public class ConfiguredMacro extends StarMacro {
       findBoundary(region_0, "KM_Farfield");
 
     boundary_3.getConditions().get(WallShearStressOption.class).setSelected(WallShearStressOption.Type.SLIP);
+
+    if (false) {
+      Boundary ground = findBoundary(region_0, "KM_Ground");
+      ground.setBoundaryType((WallBoundary) simulation_0.get(ConditionTypeManager.class).get(WallBoundary.class));
+      ground.getConditions().get(WallShearStressOption.class).setSelected(WallShearStressOption.Type.NO_SLIP);
+      ground.getConditions().get(WallSlidingOption.class).setSelected(WallSlidingOption.Type.VECTOR);
+      ground.getValues().get(WallRelativeVelocityProfile.class)
+          .getMethod(ConstantVectorProfileMethod.class).getQuantity()
+          .setComponentsAndUnits(-9.0, 0.0, 0.0, units_2);
+    }
 
     AutoMeshOperation autoMeshOperation_0 = 
       simulation_0.get(MeshOperationManager.class).createAutoMeshOperation(new StringVector(new String[] {"star.trimmer.TrimmerAutoMesher", "star.resurfacer.ResurfacerAutoMesher", "star.prismmesher.PrismAutoMesher", "star.resurfacer.AutomaticSurfaceRepairAutoMesher"}), new ArrayList<>(Arrays.<GeometryPart>asList(meshPart_0)));
@@ -477,7 +496,7 @@ public class ConfiguredMacro extends StarMacro {
       }
       sim.println("BOUNDS SELF-CHECK PASSED: known box measured in metres.");
       double[][] bounds = readIsolatedSceneBounds(sim, output, temporaryScenes);
-      sim.println("REFINEMENT BOUNDS (m): " + Arrays.toString(bounds[0])
+      sim.println("MEASURED BOUNDS (m): " + Arrays.toString(bounds[0])
           + " to " + Arrays.toString(bounds[1]));
       measurementSucceeded = true;
       return bounds;
@@ -642,7 +661,8 @@ public class ConfiguredMacro extends StarMacro {
   // Pure SI-unit calculations shared by both enclosing blocks and mesh sizing.
   private static double[][] calculateLayout(double[] lower, double[] upper, boolean useX,
       double upstream, double downstream, double sides, double vertical,
-      boolean relativeMesh, double relativePercent, double absoluteBase, double meshScale) {
+      boolean relativeMesh, double relativePercent, double absoluteBase, double meshScale,
+      boolean rollingFloor, double rideHeight) {
     double[] size = new double[3];
     for (int i = 0; i < 3; i++) {
       size[i] = upper[i] - lower[i];
@@ -663,6 +683,13 @@ public class ConfiguredMacro extends StarMacro {
       if (!Double.isFinite(boxMin[i]) || !Double.isFinite(boxMax[i])
           || !(boxMin[i] < lower[i] && upper[i] < boxMax[i]))
         throw new IllegalStateException("Domain padding cannot be resolved at these dimensions.");
+    }
+    if (rollingFloor) {
+      if (!Double.isFinite(rideHeight) || rideHeight <= 0)
+        throw new IllegalStateException("Ride height must be finite and greater than zero.");
+      boxMin[2] = lower[2] - rideHeight;
+      if (!Double.isFinite(boxMin[2]) || !(boxMin[2] < lower[2]))
+        throw new IllegalStateException("Ride height cannot be resolved at these model coordinates.");
     }
     return new double[][] {boxMin, boxMax, new double[] {ref, base}};
   }

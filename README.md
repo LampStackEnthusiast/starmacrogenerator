@@ -1,6 +1,30 @@
 # STAR Macro Builder: verified refinement measurement integrated
 
-## Status
+## Rolling floor: first implementation
+
+The **Ground** tab enables a rolling floor and an absolute ride height in mm, cm, m, in or ft. Its units are independent of mesh units. Switching units preserves the physical clearance. Old settings load with the floor disabled; new exports use settings format 5.
+
+- With the floor enabled, the existing self-checked scene measurement reads the selected CAD model directly, rather than its refinement box (which could have inflation). Bounds are based on displayed/tessellated geometry in lab coordinates, with the same precision limitations as the existing measurement path.
+- The bottom of the domain is `model_min_z - ride_height`. The model is neither moved nor scaled. Positive Z remains up; negative Z is down. Upper vertical padding, side padding and inlet/outlet padding still apply.
+- The minimum-Z face becomes `KM_Ground`, a no-slip wall with tangential velocity `[-air_speed, 0, 0]` in m/s. The stationary region uses lab coordinates. Air and floor speeds include the same speed multiplier.
+- The ground is excluded from the existing body drag/downforce reports. The other outer faces remain slip boundaries.
+- Ride height must be strictly positive. This first version does not handle tire contact at zero clearance, wheel rotation, pitch/roll, or ride height relative only to a chassis/wing subset. With tires in the selected part, clearance is measured below the tires.
+- The existing mesh settings and body-bounds refinement volume are retained. There is no automatic refinement of the gap down to the floor: inspect gap resolution and prism layers before trusting ground-effect results, especially at small clearances.
+
+### First playback
+
+1. Open `index.html`, load your settings, and enable **Ground → Enable rolling floor**. Set the absolute clearance and its units. Alternatively, load `rolling-floor-settings.json` (50 mm) or try `RollingFloorMacro.java`, which uses the default part name and 50 mm clearance.
+2. Generate a fresh macro with **Generate mesh** off. Use a saved imported-only simulation, as before.
+3. Look for `ROLLING FLOOR` in the log. Check model minimum Z, floor Z, clearance and velocity. Inspect `KM_Ground` and confirm a no-slip vector velocity toward −X, equal to the air speed.
+4. Inspect and adjust the mesh in the ground gap, then generate it and run your usual convergence checks.
+
+### What has been checked
+
+`node test-engine.cjs` checks the original generator behavior. `node test-rolling-floor.cjs` checks five clearance units, settings migration/round trips, negative-Z placement on translated models, precision guards, speed scaling, wall wiring and template synchronization. The layout test mechanically translates the pure Java calculation to JavaScript; it does not compile Java.
+
+STAR-CCM+ is unavailable here. The new minimum-Z surface split, direct CAD measurement, and moving-wall API have **not** been compiled or played in STAR-CCM+ 21.04.008. The vector moving-wall sequence follows this published original macro: https://github.com/williamsnell/star_macro/blob/master/setup_macro.java (ground boundary). Treat this branch as a first attempt pending playback.
+
+## Previous status
 
 The user verified native bounded refinement creation and visually confirmed the block is correctly placed. The standalone measurement macro also compiled and ran successfully in STAR-CCM+ 21.04.008. It passed the known-box self-check and measured all six KM_Refinement surfaces.
 
