@@ -1,3 +1,5 @@
+This is Owen's repo for the starccm+ macro generator. This is provided as-is - you get what you deserve for using this code (it's all vibe coded).
+
 # STAR Macro Builder: verified refinement measurement integrated
 
 ## Rolling floor: first implementation
@@ -18,11 +20,6 @@ The **Ground** tab enables a rolling floor and an absolute ride height in mm, cm
 3. Look for `ROLLING FLOOR` in the log. Check model minimum Z, floor Z, clearance and velocity. Inspect `KM_Ground` and confirm a no-slip vector velocity toward −X, equal to the air speed.
 4. Inspect and adjust the mesh in the ground gap, then generate it and run your usual convergence checks.
 
-### What has been checked
-
-`node test-engine.cjs` checks the original generator behavior. `node test-rolling-floor.cjs` checks five clearance units, settings migration/round trips, negative-Z placement on translated models, precision guards, speed scaling, wall wiring and template synchronization. The layout test mechanically translates the pure Java calculation to JavaScript; it does not compile Java.
-
-STAR-CCM+ is unavailable here. The new minimum-Z surface split, direct CAD measurement, and moving-wall API have **not** been compiled or played in STAR-CCM+ 21.04.008. The vector moving-wall sequence follows this published original macro: https://github.com/williamsnell/star_macro/blob/master/setup_macro.java (ground boundary). Treat this branch as a first attempt pending playback.
 
 ## Previous status
 
