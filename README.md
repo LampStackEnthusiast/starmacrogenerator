@@ -1,4 +1,4 @@
-This is Owen's repo for the starccm+ macro generator. This is provided as-is - you get what you deserve for using this code (it's all vibe coded).
+This is Owen's repo for the starccm+ macro generator. This is provided as-is - you get what you deserve for using this code (it's all vibe coded). Everything here is just the backend for lampstackenthusiast.github.io/starmacrogenerator which is what you probably should be using (go to that url!). In the event github pages starts charging money I don't have to host, you can always download the repo and then open index.html to run it locally. To use, load a part into starccm as surface mesh, and check the name it imported with (probably Part 1). Enter that into the generator, go through the rest of the settings (keep in mind default domain size is rather large), download and play the resulting macro. If you're reading this, go ask your aero lead for help.
 
 # STAR Macro Builder: verified refinement measurement integrated
 
