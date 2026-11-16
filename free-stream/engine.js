@@ -1,3 +1,10 @@
+function macroClassName(value) {
+ const name = value.trim().replace(/\.java$/i, '');
+ const reserved = new Set(('abstract assert boolean break byte case catch char class const continue default do double else enum extends final finally float for goto if implements import instanceof int interface long native new package private protected public return short static strictfp super switch synchronized this throw throws transient try void volatile while true false null _ var yield record sealed permits').split(' '));
+ if (!/^[A-Za-z][A-Za-z0-9_]*$/.test(name) || reserved.has(name) || /^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])$/i.test(name))
+   throw new Error('Use a Java class name: start with a letter, then letters, digits or underscores. Optional .java extension; no spaces, paths or reserved names.');
+ return name;
+}
 /* No dependencies. All lengths exported in metres. */
 const LENGTH_UNITS = {mm: .001, cm: .01, m: 1, in: .0254, ft: .3048};
 const SPEED_UNITS = {'m/s': 1, mph: .44704, 'km/h': 1/3.6};
@@ -38,7 +45,7 @@ function javaString(v) {
   return JSON.stringify(v).replace(/[\u007f-\uffff]/g,c=>'\\u'+c.charCodeAt(0).toString(16).padStart(4,'0'));
 }
 function renderMacro(s,className='ConfiguredMacro') {
-  if(!/^[A-Za-z][A-Za-z0-9_]*Macro$/.test(className)) throw new Error('Filename must start with a letter, use letters, digits or underscores, and end in Macro.java.');
+  className=macroClassName(className);
   const v=calculate(s), n=javaNumber;
   const r={ROLLINGFLOOR:String(s.rolling_floor),RIDEHEIGHT:n(v.ride_height),REFERENCEISX:String(s.reference==='X length'),UPSTREAM:n(s.upstream),DOWNSTREAM:n(s.downstream),SIDES:n(s.sides),VERTICAL:n(s.vertical),RELATIVEMESH:String(s.mesh_mode.startsWith('Relative')),RELATIVEBASE:n(s.mesh_mode.startsWith('Relative')?s.relative_base:1),ABSOLUTEBASE:n(s.mesh_mode==='Absolute size'?s.absolute_base*LENGTH_UNITS[s.length_unit]:1),MESHSCALE:n(s.mesh_scale),REFINEPERCENT:n(s.refinement_percent),MINSURFACE:n(s.minimum_surface_percent),TARGETSURFACE:n(s.target_surface_percent),MAXCELL:n(s.maximum_cell_percent),PRISMLAYERS:n(s.prism_layers),PRISMTHICKNESS:n(v.prism_thickness),PRISMSTRETCH:n(s.prism_stretching),REFPRESSURE:n(s.reference_pressure),INITPRESSURE:n(s.initial_pressure),OUTPRESSURE:n(s.outlet_pressure),INTENSITY:n(s.turbulence_intensity_percent/100),VISCOSITYRATIO:n(s.viscosity_ratio),CLASS:className,PART:javaString(s.part_name),SPEED:n(v.velocity),MESH:String(s.generate_mesh),SUMMARY:`Part dimensions, domain and refinement bounds are detected at playback; speed = ${n(v.velocity)} m/s.`};
   return MACRO_TEMPLATE.replace(/@([A-Z]+)@/g,(_,key)=>{if(!(key in r))throw new Error('Unknown macro token: '+key); return r[key];});

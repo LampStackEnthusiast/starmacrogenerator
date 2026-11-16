@@ -56,7 +56,7 @@ function update(){
   draw();document.querySelector('#error').textContent='';document.querySelector('#download').disabled=false;document.querySelector('#save').disabled=false;
  }catch(error){document.querySelector('#error').textContent=error.message;document.querySelector('#download').disabled=true;document.querySelector('#save').disabled=true;document.querySelector('#summary').textContent='Complete valid inputs to see the summary.';document.querySelector('#preview').replaceChildren();}
 }
-function className(){const name=document.querySelector('#filename').value.trim();if(!name.endsWith('.java'))throw new Error('Use a filename ending in Macro.java.');return name.slice(0,-5);}
+function className(){return macroClassName(document.querySelector('#filename').value);}
 function draw(){
  const rolling=readForm().rolling_floor;
  const svg=document.querySelector('#preview');
