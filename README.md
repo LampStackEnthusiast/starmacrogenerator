@@ -3,7 +3,7 @@
 Open `index.html` to choose a generator. No install or build step; keep the folders together.
 
 - **Free-stream part:** one imported CAD part; flow −X; optional rolling floor.
-- **Full-car workflow:** negative-X half car, symmetry X=0, flow +Y, moving floor, stationary wheels. Required part names are listed in the generator.
+- **Full-car workflow:** negative-X half car, symmetry X=0, flow +Y, moving floor, stationary wheels. Required part names: `Body`, `FrontLeft`, `FrontRight`, `FrontWing`, `RearLeft`, `RearRight`, `RearWing`. Separate `Headrest` and `Intake` parts are optional and included automatically when present; otherwise they can be merged into `Body`.
 - Both accept a custom macro filename, with or without `.java`. The public Java class always matches the downloaded filename.
 - Target: STAR-CCM+ 21.04.008. Save an imported-only simulation before playback.
 
